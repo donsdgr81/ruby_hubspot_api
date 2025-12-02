@@ -6,3 +6,5 @@ git_source(:github) { |repo_name| "https://github.com/#{repo_name}" }
 
 # Specify your gem's dependencies in ruby_hubspot_api.gemspec
 gemspec
+
+gem 'bigdecimal', '1.3.5'

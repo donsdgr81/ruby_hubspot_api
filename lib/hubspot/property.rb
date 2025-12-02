@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'ostruct'
+
 module Hubspot
   # Properties from the object schema
   class Property < OpenStruct

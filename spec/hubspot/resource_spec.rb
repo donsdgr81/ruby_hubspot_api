@@ -152,4 +152,54 @@ RSpec.describe Hubspot::Resource do
       end
     end
   end
+
+  describe '.associate', configure_hubspot: true do
+    let(:from_id) { 1 }
+    let(:to_id) { 2 }
+    let(:association_type_id) { 3 }
+    let(:to_object) { instance_double(Hubspot::Resource, id: to_id, resource_name: 'companies') }
+    let(:url) { "https://api.hubapi.com/crm/v3/objects/resources/#{from_id}/associations/companies/#{to_id}/#{association_type_id}" }
+
+    before do
+      stub_request(:put, url).to_return(status: 200, body: {}.to_json)
+    end
+
+    it 'makes a PUT request to the association endpoint' do
+      expect(described_class.associate(from_id, to_object, association_type_id: association_type_id)).to be(true)
+      expect(WebMock).to have_requested(:put, url)
+    end
+
+    context 'when associating by ID and type' do
+      it 'makes a PUT request to the association endpoint using the provided type' do
+        expect(described_class.associate(from_id, to_id, to_object_type: 'companies', association_type_id: association_type_id)).to be(true)
+        expect(WebMock).to have_requested(:put, url)
+      end
+
+      it 'raises an error if type is missing' do
+        expect { described_class.associate(from_id, to_id, association_type_id: association_type_id) }.to raise_error(Hubspot::ArgumentError, /to_object_type is required/)
+      end
+    end
+  end
+
+  describe '#associate', configure_hubspot: true do
+    let(:from_id) { 1 }
+    let(:to_id) { 2 }
+    let(:association_type_id) { 3 }
+    let(:resource) { described_class.new(id: from_id) }
+    let(:target_object) { Hubspot::Company.new(id: to_id) }
+
+    before do
+      stub_request(:put, %r{crm/v3/objects/resources/#{from_id}/associations/companies/#{to_id}/#{association_type_id}}).to_return(status: 200, body: {}.to_json)
+    end
+
+    it 'calls the class associate method' do
+      expect(resource.associate(target_object, association_type_id: association_type_id)).to be(true)
+    end
+
+    context 'when associating by ID and type' do
+      it 'calls the class associate method with type' do
+        expect(resource.associate(to_id, to_object_type: 'companies', association_type_id: association_type_id)).to be(true)
+      end
+    end
+  end
 end

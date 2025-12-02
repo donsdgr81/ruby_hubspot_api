@@ -166,7 +166,7 @@ module Hubspot
           idProperty: determine_id_property,
           # Gather the changes for the resource
           properties: resource.changes
-        }.compact   # Removes nil keys
+        }.reject { |_k, v| v.nil? } # Removes nil keys
       end.compact   # Removes nil entries
     end
 
@@ -176,7 +176,7 @@ module Hubspot
         {
           id: resource.public_send(@id_property),   # Use the ID or the custom property
           idProperty: determine_id_property         # Include idProperty if it's not "id"
-        }.compact
+        }.reject { |_k, v| v.nil? }
       end.compact
     end
 

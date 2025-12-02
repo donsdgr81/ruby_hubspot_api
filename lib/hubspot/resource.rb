@@ -188,6 +188,35 @@ module Hubspot
         true
       end
 
+      # Associate a resource with another resource
+      #
+      # id - The ID of the resource to associate from
+      # to_object_or_id - The resource object OR the ID of the object to associate with
+      # to_object_type - The type of the object (required if to_object_or_id is an ID)
+      # association_type_id - The ID of the association type
+      #
+      # Example:
+      #   Hubspot::Contact.associate(1, company_instance, association_type_id: 1)
+      #   Hubspot::Contact.associate(1, 2, to_object_type: 'companies', association_type_id: 1)
+      #
+      # Returns True if the association was successful
+      def associate(id, to_object_or_id, to_object_type: nil, association_type_id:)
+        if to_object_or_id.respond_to?(:id) && to_object_or_id.respond_to?(:resource_name)
+          to_id = to_object_or_id.id
+          to_type = to_object_or_id.resource_name
+        else
+          to_id = to_object_or_id
+          to_type = to_object_type
+          raise ArgumentError, 'to_object_type is required when associating by ID' if to_type.nil?
+        end
+
+        url = "#{api_root}/#{resource_name}/#{id}/associations/#{to_type}/#{to_id}/#{association_type_id}"
+        response = put(url)
+        handle_response(response)
+
+        true
+      end
+
       # Lists all resources with optional filters and pagination.
       #
       # params - Optional parameters to filter or paginate the results.
@@ -562,6 +591,27 @@ module Hubspot
       self.class.archive(id)
     end
     alias archive delete
+
+    # Associate this resource with another resource
+    #
+    # target_object_or_id - [Resource|Integer] The resource or ID to associate with
+    # to_object_type - [String] The type of the target object (required if passing ID)
+    # association_type_id - [Integer] The ID of the association type
+    #
+    # Example:
+    #   contact.associate(company, association_type_id: 1)
+    #   contact.associate(company_id, to_object_type: 'companies', association_type_id: 1)
+    #
+    # Returns True if the association was successful
+    def associate(target_object_or_id, to_object_type: nil, association_type_id:)
+      raise ArgumentError, 'must be persisted' unless persisted?
+
+      if target_object_or_id.respond_to?(:persisted?)
+        raise ArgumentError, 'target_object must be persisted' unless target_object_or_id.persisted?
+      end
+
+      self.class.associate(id, target_object_or_id, to_object_type: to_object_type, association_type_id: association_type_id)
+    end
 
     def resource_name
       self.class.resource_name
