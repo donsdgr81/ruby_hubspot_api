@@ -202,4 +202,81 @@ RSpec.describe Hubspot::Resource do
       end
     end
   end
+
+  describe '.associations', configure_hubspot: true do
+    let(:from_id) { 1 }
+    let(:to_object_type) { 'companies' }
+
+    it 'returns a PagedCollection' do
+      expect(described_class.associations(from_id, to_object_type)).to be_a(Hubspot::PagedCollection)
+    end
+  end
+
+  describe '#associations', configure_hubspot: true do
+    let(:from_id) { 1 }
+    let(:to_object_type) { 'companies' }
+    let(:resource) { described_class.new(id: from_id) }
+    let(:collection) { instance_double(Hubspot::PagedCollection) }
+
+    before do
+      allow(described_class).to receive(:associations).and_return(collection)
+    end
+
+    it 'calls the class associations method' do
+      expect(resource.associations(to_object_type)).to eq(collection)
+      expect(described_class).to have_received(:associations).with(from_id, to_object_type)
+    end
+  end
+
+  describe '.unassociate', configure_hubspot: true do
+    let(:from_id) { 1 }
+    let(:to_id) { 2 }
+    let(:association_type_id) { 3 }
+    let(:to_object) { instance_double(Hubspot::Resource, id: to_id, resource_name: 'companies') }
+    let(:url) { "https://api.hubapi.com/crm/v3/objects/resources/#{from_id}/associations/companies/#{to_id}/#{association_type_id}" }
+
+    before do
+      stub_request(:delete, url).to_return(status: 200, body: {}.to_json)
+    end
+
+    it 'makes a DELETE request to the association endpoint' do
+      expect(described_class.unassociate(from_id, to_object, association_type_id: association_type_id)).to be(true)
+      expect(WebMock).to have_requested(:delete, url)
+    end
+
+    context 'when unassociating by ID and type' do
+      it 'makes a DELETE request to the association endpoint using the provided type' do
+        expect(described_class.unassociate(from_id, to_id, to_object_type: 'companies', association_type_id: association_type_id)).to be(true)
+        expect(WebMock).to have_requested(:delete, url)
+      end
+
+      it 'raises an error if type is missing' do
+        expect { described_class.unassociate(from_id, to_id, association_type_id: association_type_id) }.to raise_error(Hubspot::ArgumentError, /to_object_type is required/)
+      end
+    end
+  end
+
+  describe '#unassociate', configure_hubspot: true do
+    let(:from_id) { 1 }
+    let(:to_id) { 2 }
+    let(:association_type_id) { 3 }
+    let(:resource) { described_class.new(id: from_id) }
+    let(:target_object) { Hubspot::Company.new(id: to_id) }
+
+    before do
+      allow(described_class).to receive(:unassociate).and_return(true)
+    end
+
+    it 'calls the class unassociate method' do
+      expect(resource.unassociate(target_object, association_type_id: association_type_id)).to be(true)
+      expect(described_class).to have_received(:unassociate).with(from_id, target_object, to_object_type: nil, association_type_id: association_type_id)
+    end
+
+    context 'when unassociating by ID and type' do
+      it 'calls the class unassociate method with type' do
+        expect(resource.unassociate(to_id, to_object_type: 'companies', association_type_id: association_type_id)).to be(true)
+        expect(described_class).to have_received(:unassociate).with(from_id, to_id, to_object_type: 'companies', association_type_id: association_type_id)
+      end
+    end
+  end
 end

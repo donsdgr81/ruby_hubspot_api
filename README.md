@@ -370,6 +370,53 @@ contacts.each do |contact|
 end
 ```
 
+### Associations
+
+You can manage associations between objects (e.g. associating a Contact with a Company).
+
+#### Creating an Association
+
+To associate two objects, use the `associate` method.
+
+```ruby
+contact = Hubspot::Contact.find(1)
+company = Hubspot::Company.find(2)
+association_type_id = 1 # The ID of the association type (e.g., primary company)
+
+contact.associate(company, association_type_id: association_type_id)
+# or using IDs
+contact.associate(2, to_object_type: 'companies', association_type_id: association_type_id)
+```
+
+#### Retrieving Associations
+
+To retrieve all associations of a certain type for an object, use the `associations` method. This returns a `PagedCollection`.
+
+```ruby
+contact = Hubspot::Contact.find(1)
+
+# Get all associated companies
+companies_associations = contact.associations('companies')
+
+companies_associations.each do |assoc|
+  puts "Associated Company ID: #{assoc['id']}"
+end
+```
+
+#### Removing an Association
+
+To remove a specific association between two objects, use the `unassociate` method.
+
+```ruby
+contact = Hubspot::Contact.find(1)
+company_id = 2
+association_type_id = 1
+
+contact.unassociate(company_id, to_object_type: 'companies', association_type_id: association_type_id)
+# or using an object
+# contact.unassociate(company_instance, association_type_id: association_type_id)
+```
+
 ## Working with batches
 
 ### Hubspot::Batch
