@@ -280,6 +280,17 @@ contacts = Hubspot::Contact.search(email: ['user1@example.com', 'user2@example.c
 contacts.each do |contact|
   puts "Found: #{contact.email}"
 end
+
+# Search with OR conditions (Email contains 'example.com' OR Firstname is 'John')
+# Pass an array of filter hashes to create multiple filter groups
+contacts = Hubspot::Contact.search([
+  { email_contains: 'example.com' },
+  { firstname: 'John' }
+])
+
+contacts.each do |contact|
+  puts "Found: #{contact.firstname} #{contact.lastname}"
+end
 ```
 
 ### Available Search Operators:
@@ -332,8 +343,23 @@ end
 
 You can use the alternative Rails-like interface to return a PagedCollection and can chain calls. Use `where(search_params)` to filter and `.select('firstname', 'lastname', 'email', 'custom_property')` to determine the properties returned by the API.
 
+Chain `where` calls to add AND conditions:
 ```ruby
-contact = Hubspot::Contact.where(hs_lead_status: [])
+# Search for contacts with (status='active') AND (lifecyclestage='customer')
+contact = Hubspot::Contact.where(status: 'active').where(lifecyclestage: 'customer')
+```
+
+Pass an array to `where` to add OR conditions:
+```ruby
+# Search for contacts with (status='active' OR status='open')
+contact = Hubspot::Contact.where([{ status: 'active' }, { status: 'open' }])
+```
+
+Combine them for complex logic:
+```ruby
+# Search for contacts where:
+# (lifecyclestage='customer') AND (status='active' OR status='open')
+contact = Hubspot::Contact.where(lifecyclestage: 'customer').where([{ status: 'active' }, { status: 'open' }])
 ```
 
 #### Getting the total number of records

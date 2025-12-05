@@ -422,10 +422,10 @@ module Hubspot
         case query
         when String
           search_body[:query] = query
-        when Hash
+        when Hash, Array
           search_body[:filterGroups] = build_filter_groups(query)
         else
-          raise ArgumentError, 'query must be either a string or a hash'
+          raise ArgumentError, 'query must be either a string, hash or array'
         end
 
         # Add the page size (passed as limit to the API)

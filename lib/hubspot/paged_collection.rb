@@ -87,7 +87,16 @@ module Hubspot
 
       # Merge new filters into the existing params structure
       if @params[:filterGroups]&.any?
-        @params[:filterGroups][0][:filters].concat(new_filter_groups[0][:filters])
+        existing_groups = @params[:filterGroups]
+        combined_groups = []
+
+        existing_groups.each do |existing_group|
+          new_filter_groups.each do |new_group|
+            combined_groups << { filters: existing_group[:filters] + new_group[:filters] }
+          end
+        end
+
+        @params[:filterGroups] = combined_groups
       else
         @params[:filterGroups] = new_filter_groups
       end
