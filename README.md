@@ -420,7 +420,7 @@ contact.associate(company, association_type_id: 1, association_category: 'USER_D
 
 #### Retrieving Associations
 
-To retrieve all associations of a certain type for an object, use the `associations` method. This returns a `PagedCollection`.
+To retrieve all associations of a certain type for an object, use the `associations` method. This returns a `PagedCollection`. This uses the V4 API, so the response structure contains `toObjectId` and `associationTypes`.
 
 ```ruby
 contact = Hubspot::Contact.find(1)
@@ -429,7 +429,12 @@ contact = Hubspot::Contact.find(1)
 companies_associations = contact.associations('companies')
 
 companies_associations.each do |assoc|
-  puts "Associated Company ID: #{assoc['id']}"
+  puts "Associated Company ID: #{assoc['toObjectId']}"
+
+  # Access association details like custom labels
+  assoc['associationTypes'].each do |type|
+    puts "Label: #{type['label']}"
+  end
 end
 ```
 

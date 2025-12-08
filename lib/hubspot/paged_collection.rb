@@ -36,8 +36,8 @@ module Hubspot
         mapped_results = process_results(response)
         yield mapped_results unless mapped_results.empty?
         sleep wait_between_pages
-        offset = response.dig('paging', 'next', 'after').to_i
-        break unless offset.positive?
+        offset = response.dig('paging', 'next', 'after')
+        break if offset.nil? || (offset.is_a?(String) && offset.empty?) || (offset.is_a?(Integer) && !offset.positive?)
       end
     end
 

@@ -287,7 +287,7 @@ module Hubspot
       #
       # Returns [PagedCollection] A list of associations
       def associations(id, to_object_type)
-        url = "#{api_root}/#{resource_name}/#{id}/associations/#{to_object_type}"
+        url = "/crm/v4/objects/#{resource_name}/#{id}/associations/#{to_object_type}"
         PagedCollection.new(
           url: url,
           resource_class: nil

@@ -237,8 +237,10 @@ RSpec.describe Hubspot::Resource do
     let(:from_id) { 1 }
     let(:to_object_type) { 'companies' }
 
-    it 'returns a PagedCollection' do
-      expect(described_class.associations(from_id, to_object_type)).to be_a(Hubspot::PagedCollection)
+    it 'returns a PagedCollection configured for V4 API' do
+      collection = described_class.associations(from_id, to_object_type)
+      expect(collection).to be_a(Hubspot::PagedCollection)
+      expect(collection.instance_variable_get(:@url)).to include("/crm/v4/objects")
     end
   end
 
