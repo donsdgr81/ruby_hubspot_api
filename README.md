@@ -402,7 +402,7 @@ You can manage associations between objects (e.g. associating a Contact with a C
 
 #### Creating an Association
 
-To associate two objects, use the `associate` method.
+To associate two objects, use the `associate` method. This uses the HubSpot V4 API.
 
 ```ruby
 contact = Hubspot::Contact.find(1)
@@ -412,6 +412,10 @@ association_type_id = 1 # The ID of the association type (e.g., primary company)
 contact.associate(company, association_type_id: association_type_id)
 # or using IDs
 contact.associate(2, to_object_type: 'companies', association_type_id: association_type_id)
+
+# You can also specify an association category (defaults to HUBSPOT_DEFINED)
+# e.g. for custom labels or custom objects
+contact.associate(company, association_type_id: 1, association_category: 'USER_DEFINED')
 ```
 
 #### Retrieving Associations
@@ -441,6 +445,9 @@ association_type_id = 1
 contact.unassociate(company_id, to_object_type: 'companies', association_type_id: association_type_id)
 # or using an object
 # contact.unassociate(company_instance, association_type_id: association_type_id)
+
+# You can also specify an association category (defaults to HUBSPOT_DEFINED)
+contact.unassociate(company_instance, association_type_id: 1, association_category: 'USER_DEFINED')
 ```
 
 ## Working with batches

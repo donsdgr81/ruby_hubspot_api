@@ -194,13 +194,15 @@ module Hubspot
       # to_object_or_id - The resource object OR the ID of the object to associate with
       # to_object_type - The type of the object (required if to_object_or_id is an ID)
       # association_type_id - The ID of the association type
+      # association_category - The category of the association type (default: 'HUBSPOT_DEFINED')
       #
       # Example:
       #   Hubspot::Contact.associate(1, company_instance, association_type_id: 1)
       #   Hubspot::Contact.associate(1, 2, to_object_type: 'companies', association_type_id: 1)
+      #   Hubspot::Contact.associate(1, 2, to_object_type: 'companies', association_type_id: 1, association_category: 'USER_DEFINED')
       #
       # Returns True if the association was successful
-      def associate(id, to_object_or_id, to_object_type: nil, association_type_id:)
+      def associate(id, to_object_or_id, to_object_type: nil, association_type_id:, association_category: 'HUBSPOT_DEFINED')
         if to_object_or_id.respond_to?(:id) && to_object_or_id.respond_to?(:resource_name)
           to_id = to_object_or_id.id
           to_type = to_object_or_id.resource_name
@@ -210,8 +212,22 @@ module Hubspot
           raise ArgumentError, 'to_object_type is required when associating by ID' if to_type.nil?
         end
 
-        url = "#{api_root}/#{resource_name}/#{id}/associations/#{to_type}/#{to_id}/#{association_type_id}"
-        response = put(url)
+        url = "/crm/v4/associations/#{resource_name}/#{to_type}/batch/create"
+        body = {
+          inputs: [
+            {
+              from: { id: id },
+              to: { id: to_id },
+              types: [
+                {
+                  associationCategory: association_category,
+                  associationTypeId: association_type_id.to_i
+                }
+              ]
+            }
+          ]
+        }
+        response = post(url, body: body.to_json)
         handle_response(response)
 
         true
@@ -223,13 +239,14 @@ module Hubspot
       # to_object_or_id - The resource object OR the ID of the object to remove association with
       # to_object_type - The type of the object (required if to_object_or_id is an ID)
       # association_type_id - The ID of the association type
+      # association_category - The category of the association type (default: 'HUBSPOT_DEFINED')
       #
       # Example:
       #   Hubspot::Contact.unassociate(1, company_instance, association_type_id: 1)
       #   Hubspot::Contact.unassociate(1, 2, to_object_type: 'companies', association_type_id: 1)
       #
       # Returns True if the removal was successful
-      def unassociate(id, to_object_or_id, to_object_type: nil, association_type_id:)
+      def unassociate(id, to_object_or_id, to_object_type: nil, association_type_id:, association_category: 'HUBSPOT_DEFINED')
         if to_object_or_id.respond_to?(:id) && to_object_or_id.respond_to?(:resource_name)
           to_id = to_object_or_id.id
           to_type = to_object_or_id.resource_name
@@ -239,8 +256,22 @@ module Hubspot
           raise ArgumentError, 'to_object_type is required when associating by ID' if to_type.nil?
         end
 
-        url = "#{api_root}/#{resource_name}/#{id}/associations/#{to_type}/#{to_id}/#{association_type_id}"
-        response = delete(url)
+        url = "/crm/v4/associations/#{resource_name}/#{to_type}/batch/archive"
+        body = {
+          inputs: [
+            {
+              from: { id: id },
+              to: { id: to_id },
+              types: [
+                {
+                  associationCategory: association_category,
+                  associationTypeId: association_type_id.to_i
+                }
+              ]
+            }
+          ]
+        }
+        response = post(url, body: body.to_json)
         handle_response(response)
 
         true
@@ -643,20 +674,21 @@ module Hubspot
     # target_object_or_id - [Resource|Integer] The resource or ID to associate with
     # to_object_type - [String] The type of the target object (required if passing ID)
     # association_type_id - [Integer] The ID of the association type
+    # association_category - [String] The category of the association type (default: 'HUBSPOT_DEFINED')
     #
     # Example:
     #   contact.associate(company, association_type_id: 1)
     #   contact.associate(company_id, to_object_type: 'companies', association_type_id: 1)
     #
     # Returns True if the association was successful
-    def associate(target_object_or_id, to_object_type: nil, association_type_id:)
+    def associate(target_object_or_id, to_object_type: nil, association_type_id:, association_category: 'HUBSPOT_DEFINED')
       raise ArgumentError, 'must be persisted' unless persisted?
 
       if target_object_or_id.respond_to?(:persisted?)
         raise ArgumentError, 'target_object must be persisted' unless target_object_or_id.persisted?
       end
 
-      self.class.associate(id, target_object_or_id, to_object_type: to_object_type, association_type_id: association_type_id)
+      self.class.associate(id, target_object_or_id, to_object_type: to_object_type, association_type_id: association_type_id, association_category: association_category)
     end
 
     # Remove an association with another resource
@@ -664,16 +696,17 @@ module Hubspot
     # target_object_or_id - [Resource|Integer] The resource or ID to remove association with
     # to_object_type - [String] The type of the target object (required if passing ID)
     # association_type_id - [Integer] The ID of the association type
+    # association_category - [String] The category of the association type (default: 'HUBSPOT_DEFINED')
     #
     # Example:
     #   contact.unassociate(company, association_type_id: 1)
     #   contact.unassociate(company_id, to_object_type: 'companies', association_type_id: 1)
     #
     # Returns True if the removal was successful
-    def unassociate(target_object_or_id, to_object_type: nil, association_type_id:)
+    def unassociate(target_object_or_id, to_object_type: nil, association_type_id:, association_category: 'HUBSPOT_DEFINED')
       raise ArgumentError, 'must be persisted' unless persisted?
 
-      self.class.unassociate(id, target_object_or_id, to_object_type: to_object_type, association_type_id: association_type_id)
+      self.class.unassociate(id, target_object_or_id, to_object_type: to_object_type, association_type_id: association_type_id, association_category: association_category)
     end
 
     # Retrieve associations with another resource type
