@@ -50,7 +50,7 @@ RSpec.describe Hubspot::Resource do
     context 'when the resource is saved in Hubspot', configure_hubspot: true do
       let(:resource) { described_class.new(id: 1) }
       before do
-        stub_request(:patch, 'https://api.hubapi.com/crm/v3/objects/resources/1').to_return(status: 200)
+        stub_request(:patch, 'https://api.hubapi.com/crm/v4/objects/resources/1').to_return(status: 200)
       end
 
       it 'will not raise an error' do
