@@ -188,6 +188,81 @@ module Hubspot
         true
       end
 
+      # Associate a resource with another resource
+      #
+      # id - The ID of the resource to associate from
+      # to_object_or_id - The resource object OR the ID of the object to associate with
+      # to_object_type - The type of the object (required if to_object_or_id is an ID)
+      # association_type_id - The ID of the association type
+      #
+      # Example:
+      #   Hubspot::Contact.associate(1, company_instance, association_type_id: 1)
+      #   Hubspot::Contact.associate(1, 2, to_object_type: 'companies', association_type_id: 1)
+      #
+      # Returns True if the association was successful
+      def associate(id, to_object_or_id, to_object_type: nil, association_type_id:)
+        if to_object_or_id.respond_to?(:id) && to_object_or_id.respond_to?(:resource_name)
+          to_id = to_object_or_id.id
+          to_type = to_object_or_id.resource_name
+        else
+          to_id = to_object_or_id
+          to_type = to_object_type
+          raise ArgumentError, 'to_object_type is required when associating by ID' if to_type.nil?
+        end
+
+        url = "#{api_root}/#{resource_name}/#{id}/associations/#{to_type}/#{to_id}/#{association_type_id}"
+        response = put(url)
+        handle_response(response)
+
+        true
+      end
+
+      # Remove an association between two resources
+      #
+      # id - The ID of the resource to remove association from
+      # to_object_or_id - The resource object OR the ID of the object to remove association with
+      # to_object_type - The type of the object (required if to_object_or_id is an ID)
+      # association_type_id - The ID of the association type
+      #
+      # Example:
+      #   Hubspot::Contact.unassociate(1, company_instance, association_type_id: 1)
+      #   Hubspot::Contact.unassociate(1, 2, to_object_type: 'companies', association_type_id: 1)
+      #
+      # Returns True if the removal was successful
+      def unassociate(id, to_object_or_id, to_object_type: nil, association_type_id:)
+        if to_object_or_id.respond_to?(:id) && to_object_or_id.respond_to?(:resource_name)
+          to_id = to_object_or_id.id
+          to_type = to_object_or_id.resource_name
+        else
+          to_id = to_object_or_id
+          to_type = to_object_type
+          raise ArgumentError, 'to_object_type is required when associating by ID' if to_type.nil?
+        end
+
+        url = "#{api_root}/#{resource_name}/#{id}/associations/#{to_type}/#{to_id}/#{association_type_id}"
+        response = delete(url)
+        handle_response(response)
+
+        true
+      end
+
+      # Retrieve associations of a resource with another resource type
+      #
+      # id - The ID of the resource to retrieve associations for
+      # to_object_type - The type of the object to retrieve associations for
+      #
+      # Example:
+      #   Hubspot::Contact.associations(1, 'companies')
+      #
+      # Returns [PagedCollection] A list of associations
+      def associations(id, to_object_type)
+        url = "#{api_root}/#{resource_name}/#{id}/associations/#{to_object_type}"
+        PagedCollection.new(
+          url: url,
+          resource_class: nil
+        )
+      end
+
       # Lists all resources with optional filters and pagination.
       #
       # params - Optional parameters to filter or paginate the results.
@@ -347,10 +422,10 @@ module Hubspot
         case query
         when String
           search_body[:query] = query
-        when Hash
+        when Hash, Array
           search_body[:filterGroups] = build_filter_groups(query)
         else
-          raise ArgumentError, 'query must be either a string or a hash'
+          raise ArgumentError, 'query must be either a string, hash or array'
         end
 
         # Add the page size (passed as limit to the API)
@@ -562,6 +637,58 @@ module Hubspot
       self.class.archive(id)
     end
     alias archive delete
+
+    # Associate this resource with another resource
+    #
+    # target_object_or_id - [Resource|Integer] The resource or ID to associate with
+    # to_object_type - [String] The type of the target object (required if passing ID)
+    # association_type_id - [Integer] The ID of the association type
+    #
+    # Example:
+    #   contact.associate(company, association_type_id: 1)
+    #   contact.associate(company_id, to_object_type: 'companies', association_type_id: 1)
+    #
+    # Returns True if the association was successful
+    def associate(target_object_or_id, to_object_type: nil, association_type_id:)
+      raise ArgumentError, 'must be persisted' unless persisted?
+
+      if target_object_or_id.respond_to?(:persisted?)
+        raise ArgumentError, 'target_object must be persisted' unless target_object_or_id.persisted?
+      end
+
+      self.class.associate(id, target_object_or_id, to_object_type: to_object_type, association_type_id: association_type_id)
+    end
+
+    # Remove an association with another resource
+    #
+    # target_object_or_id - [Resource|Integer] The resource or ID to remove association with
+    # to_object_type - [String] The type of the target object (required if passing ID)
+    # association_type_id - [Integer] The ID of the association type
+    #
+    # Example:
+    #   contact.unassociate(company, association_type_id: 1)
+    #   contact.unassociate(company_id, to_object_type: 'companies', association_type_id: 1)
+    #
+    # Returns True if the removal was successful
+    def unassociate(target_object_or_id, to_object_type: nil, association_type_id:)
+      raise ArgumentError, 'must be persisted' unless persisted?
+
+      self.class.unassociate(id, target_object_or_id, to_object_type: to_object_type, association_type_id: association_type_id)
+    end
+
+    # Retrieve associations with another resource type
+    #
+    # to_object_type - [String] The type of the target object
+    #
+    # Example:
+    #   contact.associations('companies')
+    #
+    # Returns [Array] A list of associations
+    def associations(to_object_type)
+      raise ArgumentError, 'must be persisted' unless persisted?
+
+      self.class.associations(id, to_object_type)
+    end
 
     def resource_name
       self.class.resource_name

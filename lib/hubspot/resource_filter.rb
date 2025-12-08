@@ -16,16 +16,20 @@ module Hubspot
 
       # Convert simple filters to HubSpot's filterGroups format
       def build_filter_groups(filters)
-        filter_groups = [{ filters: [] }]
+        if filters.is_a?(Array)
+          filters.map { |filter_hash| { filters: build_filters(filter_hash) } }
+        else
+          [{ filters: build_filters(filters) }]
+        end
+      end
 
-        filters.each do |key, value|
+      def build_filters(filters)
+        filters.map do |key, value|
           filter = extract_property_and_operator(key, value)
           value_key = value.is_a?(Array) ? :values : :value
           filter[value_key] = value unless value.blank?
-          filter_groups.first[:filters] << filter
+          filter
         end
-
-        filter_groups
       end
 
       # Extract property name and operator from the key

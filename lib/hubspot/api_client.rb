@@ -50,6 +50,14 @@ module Hubspot
         response
       end
 
+      def put(url, options = {})
+        ensure_configuration!
+        start_time = Time.now
+        response = super(url, options)
+        log_request(:put, url, response, start_time, options)
+        response
+      end
+
       def delete(url, options = {})
         ensure_configuration!
         start_time = Time.now
