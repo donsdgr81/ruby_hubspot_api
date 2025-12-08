@@ -287,7 +287,8 @@ module Hubspot
       #
       # Returns [PagedCollection] A list of associations
       def associations(id, to_object_type)
-        url = "#{api_root}/#{resource_name}/#{id}/associations/#{to_object_type}"
+        # Use V4 endpoint for retrieving associations
+        url = "/crm/v4/objects/#{resource_name}/#{id}/associations/#{to_object_type}"
         PagedCollection.new(
           url: url,
           resource_class: nil
@@ -359,7 +360,7 @@ module Hubspot
       # Returns [Array<Hubspot::Property>] An array of hubspot properties
       def properties
         @properties ||= begin
-          response = get("/crm/v4/properties/#{resource_name}")
+          response = get("/crm/v3/properties/#{resource_name}")
           handle_response(response)['results'].map { |hash| Property.new(hash) }
         end
       end
@@ -495,7 +496,7 @@ module Hubspot
       # but you can override this to account for a different
       # object hierarchy
       def api_root
-        '/crm/v4/objects'
+        '/crm/v3/objects'
       end
 
       def associations_api_root

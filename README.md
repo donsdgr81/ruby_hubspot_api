@@ -2,7 +2,7 @@
 
 [![codecov](https://codecov.io/gh/sensadrome/ruby_hubspot_api/branch/main/graph/badge.svg)](https://codecov.io/gh/sensadrome/ruby_hubspot_api) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/504ca01245ee4928b6ed0b13801259e7)](https://app.codacy.com/gh/sensadrome/ruby_hubspot_api/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
-This gem is a fork of [hubspot-api-ruby](https://github.com/sensadrome/ruby_hubspot_api) but updated to use version 4 of the api and with additional functionality such as associations.
+This gem is a fork of [hubspot-api-ruby](https://github.com/sensadrome/ruby_hubspot_api) but updated to use version 3 of the api (and version 4 for associations) and with additional functionality such as associations.
 
 The Ruby HubSpot API gem is a starting point for building an ORM-like interface to HubSpot's API.
 
@@ -503,7 +503,7 @@ companies = batch.resources
 # Grab an array of company domains
 company_domains = my_companies.collect(&:domain_name).compact
 
-# calls /crm/v4/objects/companies/batch/read
+# calls /crm/v3/objects/companies/batch/read
 batch = Hubspot::Batch.read(Hubspot::Company, company_domains, id_property: 'domain')
 companies = batch.resources
 ```
