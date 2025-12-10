@@ -29,8 +29,8 @@ module Hubspot
     end
 
     def initialize(attributes)
-      @attributes = attributes
-      @id = attributes['id']
+      @attributes = attributes.transform_keys(&:to_s)
+      @id = @attributes['id']
     end
 
     def delete

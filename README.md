@@ -523,6 +523,11 @@ file = Hubspot::File.replace('12345', '/path/to/new_image.png')
 # Replace using instance
 file = Hubspot::File.find('12345')
 file.replace('/path/to/new_image.png')
+
+# Replace with StringIO (memory content)
+require 'stringio'
+blob = StringIO.new('new content')
+file.replace(blob, fileName: 'new_file.txt')
 ```
 
 ### Deleting a File

@@ -174,6 +174,24 @@ RSpec.describe Hubspot::File do
       expect(file).to be_a(Hubspot::File)
       expect(file.id).to eq(file_id)
     end
+
+    it 'replaces a file content with StringIO' do
+      stub_request(:post, url)
+        .with do |request|
+          request.body.include?('memory content')
+        end
+        .to_return(
+          status: 200,
+          body: { id: file_id, name: 'test.png' }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+
+      require 'stringio'
+      blob = StringIO.new('memory content')
+      file = Hubspot::File.replace(file_id, blob, fileName: 'replacement.txt')
+      expect(file).to be_a(Hubspot::File)
+      expect(file.id).to eq(file_id)
+    end
   end
 
   describe '#replace' do
@@ -205,6 +223,26 @@ RSpec.describe Hubspot::File do
       expect(updated_file['updated']).to be true
       # Check if instance attributes updated
       expect(file['updated']).to be true
+    end
+
+    it 'replaces file content via instance method initialized with symbols' do
+      stub_request(:post, url)
+        .with do |request|
+          request.body.include?('memory content')
+        end
+        .to_return(
+          status: 200,
+          body: { id: file_id, name: 'test.png', updated: true }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+
+      require 'stringio'
+      blob = StringIO.new('memory content')
+
+      # Initialize with symbol keys to verify fix
+      file = Hubspot::File.new(id: file_id)
+      updated_file = file.replace(blob, fileName: 'replacement.txt')
+      expect(updated_file).to be_a(Hubspot::File)
     end
   end
 
