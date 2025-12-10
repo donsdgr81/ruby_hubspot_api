@@ -30,7 +30,7 @@ module Hubspot
 
     def initialize(attributes)
       @attributes = attributes.transform_keys(&:to_s)
-      @id = @attributes['id']
+      @id = @attributes['id'] || @attributes.dig('file', 'id')
     end
 
     def delete

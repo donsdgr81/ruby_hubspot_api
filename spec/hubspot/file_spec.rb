@@ -274,4 +274,12 @@ RSpec.describe Hubspot::File do
       expect(result).to be true
     end
   end
+
+  describe '#initialize' do
+    it 'initializes correctly when attributes are nested under file key' do
+      attributes = { 'file' => { 'id' => '999', 'name' => 'nested.png' }, 'folder' => {} }
+      file = Hubspot::File.new(attributes)
+      expect(file.id).to eq('999')
+    end
+  end
 end
