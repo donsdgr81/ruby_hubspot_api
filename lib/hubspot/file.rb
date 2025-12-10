@@ -72,6 +72,8 @@ module Hubspot
 
       def find_by_path(path)
         response = get("#{BASE_URL}/stat/#{path}")
+        return nil if response.code == 404
+
         new(handle_response(response))
       end
 

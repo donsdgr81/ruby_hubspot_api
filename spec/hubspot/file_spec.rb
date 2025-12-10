@@ -132,6 +132,19 @@ RSpec.describe Hubspot::File do
       expect(file.id).to eq('123')
       expect(file['path']).to eq(file_path)
     end
+
+    it 'returns nil if file does not exist' do
+      stub_request(:get, url)
+        .with(headers: { 'Authorization' => 'Bearer test_token' })
+        .to_return(
+          status: 404,
+          body: { status: 'error', message: 'No file or folder exists at path' }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+
+      file = Hubspot::File.find_by_path(file_path)
+      expect(file).to be_nil
+    end
   end
 
   describe '.replace' do

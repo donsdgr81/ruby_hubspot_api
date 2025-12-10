@@ -501,11 +501,15 @@ puts "File URL: #{file['url']}"
 
 ### Finding a File by Path
 
-To retrieve information about a file using its path, use the `find_by_path` method.
+To retrieve information about a file using its path, use the `find_by_path` method. Returns `nil` if the file is not found.
 
 ```ruby
 file = Hubspot::File.find_by_path('images/logo.png')
-puts "File ID: #{file.id}"
+if file
+  puts "File ID: #{file.id}"
+else
+  puts "File not found"
+end
 ```
 
 ### Replacing a File
