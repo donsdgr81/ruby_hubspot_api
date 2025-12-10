@@ -455,6 +455,63 @@ contact.unassociate(company_id, to_object_type: 'companies', association_type_id
 contact.unassociate(company_instance, association_type_id: 1, association_category: 'USER_DEFINED')
 ```
 
+## Files
+
+You can manage files using the `Hubspot::File` class. This allows you to upload, retrieve, and delete files.
+
+### Uploading a File
+
+To upload a file, use the `create` method. You can pass a file path or a File object. You can also specify folder paths and other options.
+
+```ruby
+# Upload using a file path
+file = Hubspot::File.create('/path/to/image.png')
+
+# Upload using a File/IO object
+file_blob = File.open('/path/to/image.png')
+file = Hubspot::File.create(file_blob)
+file_blob.close
+
+# Upload from memory (e.g., using StringIO)
+require 'stringio'
+blob = StringIO.new('my file content')
+# fileName is required when uploading from an object without a path
+file = Hubspot::File.create(blob, fileName: 'my_file.txt')
+
+# Upload with options
+file = Hubspot::File.create(
+  '/path/to/image.png',
+  folderPath: '/marketing/images',
+  options: { access: 'PUBLIC_INDEXABLE' }
+)
+
+puts "Uploaded file ID: #{file.id}"
+puts "File URL: #{file['url']}"
+```
+
+### Retrieving a File
+
+To retrieve information about a file, use the `find` method with the file ID.
+
+```ruby
+file = Hubspot::File.find('12345')
+puts "File Name: #{file['name']}"
+puts "File URL: #{file['url']}"
+```
+
+### Deleting a File
+
+To delete a file, use the `delete` method with the file ID or call `delete` on a file instance.
+
+```ruby
+# Delete by ID
+Hubspot::File.delete('12345')
+
+# Delete instance
+file = Hubspot::File.find('12345')
+file.delete
+```
+
 ## Working with batches
 
 ### Hubspot::Batch

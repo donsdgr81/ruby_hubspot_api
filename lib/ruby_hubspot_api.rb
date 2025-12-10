@@ -25,6 +25,7 @@ require_relative 'hubspot/user'
 require_relative 'hubspot/form'
 
 # Load other components
+require_relative 'hubspot/file'
 require_relative 'hubspot/batch'
 require_relative 'hubspot/paged_collection'
 
