@@ -114,6 +114,87 @@ RSpec.describe Hubspot::File do
     end
   end
 
+  describe '.find_by_path' do
+    let(:file_path) { 'images/logo.png' }
+    let(:url) { "https://api.hubapi.com/files/v3/files/stat/#{file_path}" }
+
+    it 'retrieves a file by path' do
+      stub_request(:get, url)
+        .with(headers: { 'Authorization' => 'Bearer test_token' })
+        .to_return(
+          status: 200,
+          body: { id: '123', name: 'logo.png', path: file_path }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+
+      file = Hubspot::File.find_by_path(file_path)
+      expect(file).to be_a(Hubspot::File)
+      expect(file.id).to eq('123')
+      expect(file['path']).to eq(file_path)
+    end
+  end
+
+  describe '.replace' do
+    let(:file_id) { '123' }
+    let(:url) { "https://api.hubapi.com/files/v3/files/#{file_id}/replace" }
+    let(:file_path) { 'spec/fixtures/test.png' }
+
+    before do
+      File.write(file_path, 'fake replacement content')
+    end
+    after do
+      File.delete(file_path) if File.exist?(file_path)
+    end
+
+    it 'replaces a file content' do
+      stub_request(:post, url)
+        .with do |request|
+          request.body.include?('fake replacement content')
+        end
+        .to_return(
+          status: 200,
+          body: { id: file_id, name: 'test.png' }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+
+      file = Hubspot::File.replace(file_id, file_path)
+      expect(file).to be_a(Hubspot::File)
+      expect(file.id).to eq(file_id)
+    end
+  end
+
+  describe '#replace' do
+    let(:file_id) { '123' }
+    let(:url) { "https://api.hubapi.com/files/v3/files/#{file_id}/replace" }
+    let(:file_path) { 'spec/fixtures/test.png' }
+
+    before do
+      File.write(file_path, 'fake replacement content')
+    end
+    after do
+      File.delete(file_path) if File.exist?(file_path)
+    end
+
+    it 'replaces file content via instance method' do
+      stub_request(:post, url)
+        .with do |request|
+          request.body.include?('fake replacement content')
+        end
+        .to_return(
+          status: 200,
+          body: { id: file_id, name: 'test.png', updated: true }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+
+      file = Hubspot::File.new('id' => file_id)
+      updated_file = file.replace(file_path)
+      expect(updated_file).to be_a(Hubspot::File)
+      expect(updated_file['updated']).to be true
+      # Check if instance attributes updated
+      expect(file['updated']).to be true
+    end
+  end
+
   describe '.delete' do
     let(:file_id) { '123' }
     let(:url) { "https://api.hubapi.com/files/v3/files/#{file_id}" }

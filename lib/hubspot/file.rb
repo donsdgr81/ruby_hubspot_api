@@ -37,6 +37,12 @@ module Hubspot
       self.class.delete(@id)
     end
 
+    def replace(file_path_or_io, options = {})
+      self.class.replace(@id, file_path_or_io, options).tap do |new_file|
+        @attributes = new_file.attributes
+      end
+    end
+
     def [](key)
       @attributes[key.to_s]
     end
@@ -44,19 +50,7 @@ module Hubspot
     class << self
       def create(file_path_or_io, options = {})
         payload = {}
-
-        file_object = if file_path_or_io.is_a?(String)
-                        ::File.open(file_path_or_io)
-                      else
-                        file_path_or_io
-                      end
-
-        # If it's an IO object but doesn't have path/original_filename, and we have fileName in options, wrap it.
-        if options[:fileName] && !file_object.respond_to?(:path) && !file_object.respond_to?(:original_filename)
-          file_object = IOAdapter.new(file_object, options[:fileName])
-        end
-
-        payload[:file] = file_object
+        payload[:file] = prepare_file_payload(file_path_or_io, options)
 
         [:folderId, :folderPath, :fileName, :charset].each do |key|
           payload[key] = options[key] if options[key]
@@ -76,6 +70,27 @@ module Hubspot
         new(handle_response(response))
       end
 
+      def find_by_path(path)
+        response = get("#{BASE_URL}/stat/#{path}")
+        new(handle_response(response))
+      end
+
+      def replace(id, file_path_or_io, options = {})
+        payload = {}
+        payload[:file] = prepare_file_payload(file_path_or_io, options)
+
+        [:fileName, :charset].each do |key|
+          payload[key] = options[key] if options[key]
+        end
+
+        if options[:options]
+          payload[:options] = options[:options].is_a?(String) ? options[:options] : options[:options].to_json
+        end
+
+        response = post("#{BASE_URL}/#{id}/replace", body: payload)
+        new(handle_response(response))
+      end
+
       def delete(id)
         response = super("#{BASE_URL}/#{id}")
 
@@ -84,6 +99,23 @@ module Hubspot
 
         handle_response(response)
         true
+      end
+
+      private
+
+      def prepare_file_payload(file_path_or_io, options)
+        file_object = if file_path_or_io.is_a?(String)
+                        ::File.open(file_path_or_io)
+                      else
+                        file_path_or_io
+                      end
+
+        # If it's an IO object but doesn't have path/original_filename, and we have fileName in options, wrap it.
+        if options[:fileName] && !file_object.respond_to?(:path) && !file_object.respond_to?(:original_filename)
+          file_object = IOAdapter.new(file_object, options[:fileName])
+        end
+
+        file_object
       end
     end
   end

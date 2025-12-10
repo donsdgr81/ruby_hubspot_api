@@ -499,6 +499,28 @@ puts "File Name: #{file['name']}"
 puts "File URL: #{file['url']}"
 ```
 
+### Finding a File by Path
+
+To retrieve information about a file using its path, use the `find_by_path` method.
+
+```ruby
+file = Hubspot::File.find_by_path('images/logo.png')
+puts "File ID: #{file.id}"
+```
+
+### Replacing a File
+
+To replace the content of an existing file, use the `replace` method.
+
+```ruby
+# Replace by ID
+file = Hubspot::File.replace('12345', '/path/to/new_image.png')
+
+# Replace using instance
+file = Hubspot::File.find('12345')
+file.replace('/path/to/new_image.png')
+```
+
 ### Deleting a File
 
 To delete a file, use the `delete` method with the file ID or call `delete` on a file instance.
