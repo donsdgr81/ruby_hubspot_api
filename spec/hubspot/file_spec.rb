@@ -40,6 +40,20 @@ RSpec.describe Hubspot::File do
       expect(file_obj.id).to eq('123')
     end
 
+    it 'sets default access to PRIVATE' do
+      stub_request(:post, url)
+        .with do |request|
+          request.body.include?('"access":"PRIVATE"')
+        end
+        .to_return(
+          status: 201,
+          body: { id: '123', name: 'test.png' }.to_json,
+          headers: { 'Content-Type' => 'application/json' }
+        )
+
+      Hubspot::File.create(file_path)
+    end
+
     it 'passes options correctly' do
       stub_request(:post, url)
         .with do |request|
@@ -147,9 +161,9 @@ RSpec.describe Hubspot::File do
     end
   end
 
-  describe '.replace' do
+  describe '.update' do
     let(:file_id) { '123' }
-    let(:url) { "https://api.hubapi.com/files/v3/files/#{file_id}/replace" }
+    let(:url) { "https://api.hubapi.com/files/v3/files/#{file_id}" }
     let(:file_path) { 'spec/fixtures/test.png' }
 
     before do
@@ -159,10 +173,11 @@ RSpec.describe Hubspot::File do
       File.delete(file_path) if File.exist?(file_path)
     end
 
-    it 'replaces a file content' do
-      stub_request(:post, url)
+    it 'updates a file content (PUT)' do
+      stub_request(:put, url)
         .with do |request|
-          request.body.include?('fake replacement content')
+          request.body.include?('fake replacement content') &&
+          request.body.include?('"access":"PRIVATE"')
         end
         .to_return(
           status: 200,
@@ -170,13 +185,13 @@ RSpec.describe Hubspot::File do
           headers: { 'Content-Type' => 'application/json' }
         )
 
-      file = Hubspot::File.replace(file_id, file_path)
+      file = Hubspot::File.update(file_id, file_path)
       expect(file).to be_a(Hubspot::File)
       expect(file.id).to eq(file_id)
     end
 
-    it 'replaces a file content with StringIO' do
-      stub_request(:post, url)
+    it 'updates a file content with StringIO' do
+      stub_request(:put, url)
         .with do |request|
           request.body.include?('memory content')
         end
@@ -188,15 +203,15 @@ RSpec.describe Hubspot::File do
 
       require 'stringio'
       blob = StringIO.new('memory content')
-      file = Hubspot::File.replace(file_id, blob, fileName: 'replacement.txt')
+      file = Hubspot::File.update(file_id, blob, fileName: 'replacement.txt')
       expect(file).to be_a(Hubspot::File)
       expect(file.id).to eq(file_id)
     end
   end
 
-  describe '#replace' do
+  describe '#update' do
     let(:file_id) { '123' }
-    let(:url) { "https://api.hubapi.com/files/v3/files/#{file_id}/replace" }
+    let(:url) { "https://api.hubapi.com/files/v3/files/#{file_id}" }
     let(:file_path) { 'spec/fixtures/test.png' }
 
     before do
@@ -206,8 +221,8 @@ RSpec.describe Hubspot::File do
       File.delete(file_path) if File.exist?(file_path)
     end
 
-    it 'replaces file content via instance method' do
-      stub_request(:post, url)
+    it 'updates file content via instance method' do
+      stub_request(:put, url)
         .with do |request|
           request.body.include?('fake replacement content')
         end
@@ -218,15 +233,14 @@ RSpec.describe Hubspot::File do
         )
 
       file = Hubspot::File.new('id' => file_id)
-      updated_file = file.replace(file_path)
+      updated_file = file.update(file_path)
       expect(updated_file).to be_a(Hubspot::File)
       expect(updated_file['updated']).to be true
-      # Check if instance attributes updated
       expect(file['updated']).to be true
     end
 
-    it 'replaces file content via instance method initialized with symbols' do
-      stub_request(:post, url)
+    it 'updates file content via instance method initialized with symbols' do
+      stub_request(:put, url)
         .with do |request|
           request.body.include?('memory content')
         end
@@ -239,9 +253,8 @@ RSpec.describe Hubspot::File do
       require 'stringio'
       blob = StringIO.new('memory content')
 
-      # Initialize with symbol keys to verify fix
       file = Hubspot::File.new(id: file_id)
-      updated_file = file.replace(blob, fileName: 'replacement.txt')
+      updated_file = file.update(blob, fileName: 'replacement.txt')
       expect(updated_file).to be_a(Hubspot::File)
     end
   end

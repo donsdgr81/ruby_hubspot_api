@@ -2,6 +2,7 @@
 
 require_relative './api_client'
 require 'delegate'
+require 'json'
 
 module Hubspot
   # Handles file operations via the HubSpot Files API V3
@@ -37,8 +38,8 @@ module Hubspot
       self.class.delete(@id)
     end
 
-    def replace(file_path_or_io, options = {})
-      self.class.replace(@id, file_path_or_io, options).tap do |new_file|
+    def update(file_path_or_io, options = {})
+      self.class.update(@id, file_path_or_io, options).tap do |new_file|
         @attributes = new_file.attributes
       end
     end
@@ -56,9 +57,7 @@ module Hubspot
           payload[key] = options[key] if options[key]
         end
 
-        if options[:options]
-          payload[:options] = options[:options].is_a?(String) ? options[:options] : options[:options].to_json
-        end
+        payload[:options] = prepare_api_options(options[:options]).to_json
 
         # Content-Type header is removed in default_options for this class
         response = post(BASE_URL, body: payload)
@@ -77,7 +76,7 @@ module Hubspot
         new(handle_response(response))
       end
 
-      def replace(id, file_path_or_io, options = {})
+      def update(id, file_path_or_io, options = {})
         payload = {}
         payload[:file] = prepare_file_payload(file_path_or_io, options)
 
@@ -85,11 +84,9 @@ module Hubspot
           payload[key] = options[key] if options[key]
         end
 
-        if options[:options]
-          payload[:options] = options[:options].is_a?(String) ? options[:options] : options[:options].to_json
-        end
+        payload[:options] = prepare_api_options(options[:options]).to_json
 
-        response = post("#{BASE_URL}/#{id}/replace", body: payload)
+        response = put("#{BASE_URL}/#{id}", body: payload)
         new(handle_response(response))
       end
 
@@ -118,6 +115,17 @@ module Hubspot
         end
 
         file_object
+      end
+
+      def prepare_api_options(user_options)
+        opts = user_options || {}
+        if opts.is_a?(String)
+          opts = JSON.parse(opts)
+        end
+
+        opts = opts.transform_keys(&:to_s)
+        opts['access'] ||= 'PRIVATE'
+        opts
       end
     end
   end

@@ -512,22 +512,23 @@ else
 end
 ```
 
-### Replacing a File
+### Updating a File
 
-To replace the content of an existing file, use the `replace` method.
+To update (replace) the content of an existing file, use the `update` method.
+Note: The access level defaults to 'PRIVATE' if not specified.
 
 ```ruby
-# Replace by ID
-file = Hubspot::File.replace('12345', '/path/to/new_image.png')
+# Update by ID
+file = Hubspot::File.update('12345', '/path/to/new_image.png')
 
-# Replace using instance
+# Update using instance
 file = Hubspot::File.find('12345')
-file.replace('/path/to/new_image.png')
+file.update('/path/to/new_image.png')
 
-# Replace with StringIO (memory content)
+# Update with StringIO (memory content)
 require 'stringio'
 blob = StringIO.new('new content')
-file.replace(blob, fileName: 'new_file.txt')
+file.update(blob, fileName: 'new_file.txt')
 ```
 
 ### Deleting a File
