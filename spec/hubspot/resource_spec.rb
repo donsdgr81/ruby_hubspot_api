@@ -278,7 +278,7 @@ RSpec.describe Hubspot::Resource do
           inputs: [
             {
               from: { id: from_id },
-              to: { id: to_id },
+              to: [{ id: to_id }],
               types: [
                 {
                   associationCategory: 'HUBSPOT_DEFINED',
@@ -299,7 +299,7 @@ RSpec.describe Hubspot::Resource do
             inputs: [
               {
                 from: { id: from_id },
-                to: { id: to_id },
+                to: [{ id: to_id }],
                 types: [
                   {
                     associationCategory: 'HUBSPOT_DEFINED',

@@ -261,7 +261,7 @@ module Hubspot
           inputs: [
             {
               from: { id: id },
-              to: { id: to_id },
+              to: [{ id: to_id }],
               types: [
                 {
                   associationCategory: association_category,
