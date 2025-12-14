@@ -118,6 +118,37 @@ contact = Hubspot::Contact.find_by('member_id', 123)
 puts "Contact: #{contact.firstname} #{contact.lastname}"
 ```
 
+### View all properties
+
+By default, HubSpot only returns a subset of properties when fetching an object. If you need to view all properties of an object, you can use the `reload_properties` method.
+
+```ruby
+contact = Hubspot::Contact.find(1)
+contact.properties.keys.count # => e.g., 5
+
+contact.reload_properties
+contact.properties.keys.count # => e.g., 150 (all available properties)
+```
+
+### View available properties (Schema)
+
+You can list all available properties defined for a resource (i.e. the schema) using the `properties` or `property_names` methods. This fetches the property definitions from HubSpot.
+
+```ruby
+# Get all property definitions (returns Array<Hubspot::Property>)
+all_props = Hubspot::Contact.properties
+# or on an instance
+all_props = contact.available_properties
+
+all_props.each do |prop|
+  puts "#{prop.name} (#{prop.type})"
+end
+
+# Get just the property names
+names = Hubspot::Contact.property_names
+puts names.join(', ')
+```
+
 ### Updating an Existing Object
 
 To update an existing object, you can either modify the object and call `save`, or use the `update` method specifying the properties you want to update. You can test whether or not the object will need to upload changes to the api by using the changes? method. If you don't want to check for changes? you can use the method `save!` on the resource which will raise a Hubspot::NothingToDoError if there are no changes.

@@ -341,4 +341,37 @@ RSpec.describe Hubspot::Resource do
       end
     end
   end
+
+  describe '#reload_properties' do
+    let(:resource) { described_class.new(id: 1) }
+    let(:all_properties) do
+      [
+        double('Property', name: 'firstname'),
+        double('Property', name: 'lastname'),
+        double('Property', name: 'email')
+      ]
+    end
+    let(:refreshed_resource) do
+      described_class.new('id' => 1, 'properties' => { 'firstname' => 'Mace', 'lastname' => 'Windu', 'email' => 'mace@jedi.org' })
+    end
+
+    before do
+      allow(described_class).to receive(:properties).and_return(all_properties)
+      allow(described_class).to receive(:find).with(1, properties: %w[firstname lastname email]).and_return(refreshed_resource)
+    end
+
+    it 'fetches all properties and updates the instance' do
+      expect(resource.properties).to be_empty
+
+      resource.reload_properties
+
+      expect(resource.properties['firstname']).to eq('Mace')
+      expect(resource.properties['lastname']).to eq('Windu')
+      expect(resource.properties['email']).to eq('mace@jedi.org')
+    end
+
+    it 'returns self' do
+      expect(resource.reload_properties).to eq(resource)
+    end
+  end
 end

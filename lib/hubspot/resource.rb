@@ -399,6 +399,13 @@ module Hubspot
         properties.detect { |prop| prop.name == property_name }
       end
 
+      # Retrieve a list of property names
+      #
+      # Returns [Array<String>] An array of property names
+      def property_names
+        properties.map(&:name)
+      end
+
       # rubocop:disable Metrics/MethodLength
 
       # Search for resources using a flexible query format and optional properties.
@@ -616,6 +623,29 @@ module Hubspot
       raise NothingToDoError, 'Nothing to save' unless changes?
 
       save
+    end
+
+    # Reload the resource with all available properties
+    #
+    # Example:
+    #   contact = Hubspot::Contact.find(1)
+    #   contact.reload_properties
+    #   contact.properties.keys # => returns all properties
+    #
+    # Returns self
+    def reload_properties
+      all_property_names = self.class.properties.map(&:name)
+      refreshed = self.class.find(id, properties: all_property_names)
+      @properties = refreshed.properties
+      @metadata = refreshed.metadata
+      self
+    end
+
+    # Retrieve the list of available properties for this resource
+    #
+    # Returns [Array<Hubspot::Property>] An array of hubspot properties
+    def available_properties
+      self.class.properties
     end
 
     # If the resource exists in Hubspot
