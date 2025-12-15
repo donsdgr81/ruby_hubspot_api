@@ -95,6 +95,23 @@ new_contact.save
 
 # After saving, the contact will be assigned an ID by the API
 puts "New contact ID: #{new_contact.id}"
+
+# You can also create associations at the same time
+# The associations array accepts hashes with:
+# - to_id (or to): The ID or the Object instance to associate with
+# - association_type_id: The ID of the association type
+# - association_category: (Optional) 'HUBSPOT_DEFINED' (default) or 'USER_DEFINED'
+
+company = Hubspot::Company.find(123)
+
+new_contact = Hubspot::Contact.new(
+  email: 'john.doe@example.com',
+  associations: [
+    { to_id: 123, association_type_id: 1 }, # Associate with company ID
+    { to: company, association_type_id: 1 } # Associate with company object
+  ]
+)
+new_contact.save
 ```
 
 ### Retreiving an Object
@@ -189,6 +206,18 @@ Example using `update`:
 contact = Hubspot::Contact.find(1)
 # save the updates to Hubspot
 contact.update(lastname: 'DoeUpdated') # true
+
+# You can also add associations during update
+# Note: When updating using IDs, to_object_type is required.
+contact.update(
+  { lastname: 'DoeUpdated' },
+  associations: [
+    { to_id: 456, to_object_type: 'companies', association_type_id: 1 },
+    # Associate with a custom object (pass the object directly)
+    # You can specify association_category if needed (e.g. for custom objects)
+    { to: my_custom_object, association_type_id: 55, association_category: 'USER_DEFINED' }
+  ]
+)
 ```
 
 If you are able to construct an Object with data stored locally you can save the inital `find` api call, but you will need to construct the persisted object specifying the id and a properties hash (as if it came from the api!)

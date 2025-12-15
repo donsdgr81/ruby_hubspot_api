@@ -43,6 +43,9 @@ module Hubspot
     # any other data sent from the api about the resource
     attr_accessor :metadata
 
+    # associations to be created/updated on save
+    attr_accessor :pending_associations
+
     class << self
       # Return a paged_collection - similar to an ActiveRecord Relation
       #
@@ -152,7 +155,11 @@ module Hubspot
       #
       # Returns [Resource] The newly created resource.
       def create(params)
-        response = post("#{api_root}/#{resource_name}", body: { properties: params }.to_json)
+        associations = params.delete(:associations) || params.delete('associations')
+        body = { properties: params }
+        body[:associations] = build_associations_payload(associations) if associations
+
+        response = post("#{api_root}/#{resource_name}", body: body.to_json)
         instantiate_from_response(response)
       end
 
@@ -160,15 +167,33 @@ module Hubspot
       #
       # id - The ID of the resource to update.
       # params - The properties to update.
+      # associations - Optional array of associations to create.
       #
       # Example:
       #   contact.update(1, name: "Jane Doe")
+      #   contact.update(1, { name: "Jane Doe" }, associations: [{ to_id: 2, to_object_type: 'companies', association_type_id: 1 }])
       #
       # Returns True if the update was successful
-      def update(id, params)
+      def update(id, params, associations: [])
+        associations = associations.dup
+        associations.concat(params.delete(:associations) || params.delete('associations') || [])
+
         response = patch("#{api_root}/#{resource_name}/#{id}",
                          body: { properties: params }.to_json)
         handle_response(response)
+
+        if associations.any?
+          associations.each do |assoc|
+            target = assoc[:to] || assoc['to'] || assoc[:object] || assoc['object'] || assoc[:to_id] || assoc['to_id']
+            associate(
+              id,
+              target,
+              to_object_type: assoc[:to_object_type] || assoc['to_object_type'],
+              association_type_id: assoc[:association_type_id] || assoc['association_type_id'],
+              association_category: assoc[:association_category] || assoc['association_category'] || 'HUBSPOT_DEFINED'
+            )
+          end
+        end
 
         true
       end
@@ -551,6 +576,25 @@ module Hubspot
 
         properties.concat(required_properties).uniq
       end
+
+      def build_associations_payload(associations)
+        return [] unless associations.is_a?(Array)
+
+        associations.map do |assoc|
+          target = assoc[:to] || assoc['to'] || assoc[:object] || assoc['object'] || assoc[:to_id] || assoc['to_id']
+          target_id = target.respond_to?(:id) ? target.id : target
+
+          {
+            to: { id: target_id },
+            types: [
+              {
+                associationCategory: assoc[:association_category] || assoc['association_category'] || 'HUBSPOT_DEFINED',
+                associationTypeId: (assoc[:association_type_id] || assoc['association_type_id']).to_i
+              }
+            ]
+          }
+        end
+      end
     end
 
     # rubocop:disable Lint/MissingSuper
@@ -582,12 +626,17 @@ module Hubspot
       @id = extract_id(data.delete(api_id_field))
       @properties = {}
       @metadata = {}
+      @pending_associations = []
 
       if @id && api_formed_reponse?(data)
         initialize_from_api(data)
       else
         initialize_new_object(data)
       end
+    end
+    
+    def associations=(associations)
+      @pending_associations = associations
     end
     # rubocop:enable Lint/MissingSuper
 
@@ -607,15 +656,18 @@ module Hubspot
     #
     # Returns Boolean
     def save
+      associations = @changes.delete('associations') || @pending_associations || []
+      
       if persisted?
-        self.class.update(@id, @changes).tap do |result|
+        self.class.update(@id, @changes, associations: associations).tap do |result|
           return false unless result
 
           @properties.merge!(@changes)
           @changes = {}
+          @pending_associations = []
         end
       else
-        create_new
+        create_new(associations)
       end
     end
 
@@ -881,11 +933,12 @@ module Hubspot
     end
 
     # Create a new resource
-    def create_new
-      created_resource = self.class.create(@changes)
+    def create_new(associations = [])
+      created_resource = self.class.create(@changes.merge(associations: associations))
       @id = created_resource.id
       @properties.merge!(@changes)
       @changes = {}
+      @pending_associations = []
       @id ? true : false
     end
   end
