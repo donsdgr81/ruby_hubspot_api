@@ -360,14 +360,30 @@ end
 - **gte**: Greater than or equal to.
 - **lt**: Less than.
 - **lte**: Less than or equal to.
+- **between**: Between two values.
+- **has_property**: Property exists.
+- **not_has_property**: Property does not exist.
 
-#### Searching for empty values (NOT_HAS_PROPERTY)
+#### Searching with ranges (BETWEEN)
 
-Any empty value in your search will be matched using the correect filter in Hubspot
+```ruby
+# Search for contacts created between two dates (timestamps in milliseconds)
+contacts = Hubspot::Contact.search(createdate_between: ['1572566400000', '1575158400000'])
+```
+
+#### Searching for property existence (HAS_PROPERTY / NOT_HAS_PROPERTY)
+
+```ruby
+# Search for contacts that have a specific property
+contacts = Hubspot::Contact.search(phone_has_property: true)
+
+# Search for contacts that do not have a specific property
+contacts = Hubspot::Contact.search(mobilephone_not_has_property: true)
+```
 
 ```ruby
 # Search for companies with no value for a given field
-companies = Hubspot::Company.search({ client_category: nil }, properties: %w[name number_of_employees])
+companies = Hubspot::Company.search({ client_category_not_has_property: true }, properties: %w[name number_of_employees])
 # Request body: {"filterGroups":[{"filters":[{"propertyName":"client_category","operator":"NOT_HAS_PROPERTY"}]}]
 
 puts "Searching for uncategorised customers"

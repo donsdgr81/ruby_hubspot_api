@@ -11,7 +11,10 @@ module Hubspot
         '_gte' => 'GTE',
         '_lte' => 'LTE',
         '_neq' => 'NEQ',
-        '_in' => 'IN'
+        '_in' => 'IN',
+        '_between' => 'BETWEEN',
+        '_not_has_property' => 'NOT_HAS_PROPERTY',
+        '_has_property' => 'HAS_PROPERTY'
       }.freeze
 
       # Convert simple filters to HubSpot's filterGroups format
@@ -26,8 +29,16 @@ module Hubspot
       def build_filters(filters)
         filters.map do |key, value|
           filter = extract_property_and_operator(key, value)
-          value_key = value.is_a?(Array) ? :values : :value
-          filter[value_key] = value unless value.blank?
+
+          if filter[:operator] == 'BETWEEN'
+            filter[:value] = value[0]
+            filter[:highValue] = value[1]
+          elsif %w[HAS_PROPERTY NOT_HAS_PROPERTY].include?(filter[:operator])
+            # Do not add value
+          else
+            value_key = value.is_a?(Array) ? :values : :value
+            filter[value_key] = value unless value.blank?
+          end
           filter
         end
       end

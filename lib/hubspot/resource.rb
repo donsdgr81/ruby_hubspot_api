@@ -449,6 +449,9 @@ module Hubspot
       #   - `_lte`: Less than or equal to comparison.
       #   - `_neq`: Not equal to comparison.
       #   - `_in`: Matches any of the values in the given array.
+      #   - `_between`: Matches values between the given range (requires an array of two values).
+      #   - `_has_property`: Matches resources where the property exists (value is ignored).
+      #   - `_not_has_property`: Matches resources where the property does not exist (value is ignored).
       #
       # If no suffix is provided, the default comparison is equality (`EQ`).
       #
@@ -634,7 +637,7 @@ module Hubspot
         initialize_new_object(data)
       end
     end
-    
+
     def associations=(associations)
       @pending_associations = associations
     end
@@ -657,7 +660,7 @@ module Hubspot
     # Returns Boolean
     def save
       associations = @changes.delete('associations') || @pending_associations || []
-      
+
       if persisted?
         self.class.update(@id, @changes, associations: associations).tap do |result|
           return false unless result
