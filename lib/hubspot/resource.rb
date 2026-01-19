@@ -43,6 +43,9 @@ module Hubspot
     # any other data sent from the api about the resource
     attr_accessor :metadata
 
+    # associations to be created/updated on save
+    attr_accessor :pending_associations
+
     class << self
       # Return a paged_collection - similar to an ActiveRecord Relation
       #
@@ -152,7 +155,11 @@ module Hubspot
       #
       # Returns [Resource] The newly created resource.
       def create(params)
-        response = post("#{api_root}/#{resource_name}", body: { properties: params }.to_json)
+        associations = params.delete(:associations) || params.delete('associations')
+        body = { properties: params }
+        body[:associations] = build_associations_payload(associations) if associations
+
+        response = post("#{api_root}/#{resource_name}", body: body.to_json)
         instantiate_from_response(response)
       end
 
@@ -160,15 +167,33 @@ module Hubspot
       #
       # id - The ID of the resource to update.
       # params - The properties to update.
+      # associations - Optional array of associations to create.
       #
       # Example:
       #   contact.update(1, name: "Jane Doe")
+      #   contact.update(1, { name: "Jane Doe" }, associations: [{ to_id: 2, to_object_type: 'companies', association_type_id: 1 }])
       #
       # Returns True if the update was successful
-      def update(id, params)
+      def update(id, params, associations: [])
+        associations = associations.dup
+        associations.concat(params.delete(:associations) || params.delete('associations') || [])
+
         response = patch("#{api_root}/#{resource_name}/#{id}",
                          body: { properties: params }.to_json)
         handle_response(response)
+
+        if associations.any?
+          associations.each do |assoc|
+            target = assoc[:to] || assoc['to'] || assoc[:object] || assoc['object'] || assoc[:to_id] || assoc['to_id']
+            associate(
+              id,
+              target,
+              to_object_type: assoc[:to_object_type] || assoc['to_object_type'],
+              association_type_id: assoc[:association_type_id] || assoc['association_type_id'],
+              association_category: assoc[:association_category] || assoc['association_category'] || 'HUBSPOT_DEFINED'
+            )
+          end
+        end
 
         true
       end
@@ -194,13 +219,15 @@ module Hubspot
       # to_object_or_id - The resource object OR the ID of the object to associate with
       # to_object_type - The type of the object (required if to_object_or_id is an ID)
       # association_type_id - The ID of the association type
+      # association_category - The category of the association type (default: 'HUBSPOT_DEFINED')
       #
       # Example:
       #   Hubspot::Contact.associate(1, company_instance, association_type_id: 1)
       #   Hubspot::Contact.associate(1, 2, to_object_type: 'companies', association_type_id: 1)
+      #   Hubspot::Contact.associate(1, 2, to_object_type: 'companies', association_type_id: 1, association_category: 'USER_DEFINED')
       #
       # Returns True if the association was successful
-      def associate(id, to_object_or_id, to_object_type: nil, association_type_id:)
+      def associate(id, to_object_or_id, to_object_type: nil, association_type_id:, association_category: 'HUBSPOT_DEFINED')
         if to_object_or_id.respond_to?(:id) && to_object_or_id.respond_to?(:resource_name)
           to_id = to_object_or_id.id
           to_type = to_object_or_id.resource_name
@@ -210,8 +237,22 @@ module Hubspot
           raise ArgumentError, 'to_object_type is required when associating by ID' if to_type.nil?
         end
 
-        url = "#{api_root}/#{resource_name}/#{id}/associations/#{to_type}/#{to_id}/#{association_type_id}"
-        response = put(url)
+        url = "#{associations_api_root}/#{resource_name}/#{to_type}/batch/create"
+        body = {
+          inputs: [
+            {
+              from: { id: id },
+              to: { id: to_id },
+              types: [
+                {
+                  associationCategory: association_category,
+                  associationTypeId: association_type_id.to_i
+                }
+              ]
+            }
+          ]
+        }
+        response = post(url, body: body.to_json)
         handle_response(response)
 
         true
@@ -223,13 +264,14 @@ module Hubspot
       # to_object_or_id - The resource object OR the ID of the object to remove association with
       # to_object_type - The type of the object (required if to_object_or_id is an ID)
       # association_type_id - The ID of the association type
+      # association_category - The category of the association type (default: 'HUBSPOT_DEFINED')
       #
       # Example:
       #   Hubspot::Contact.unassociate(1, company_instance, association_type_id: 1)
       #   Hubspot::Contact.unassociate(1, 2, to_object_type: 'companies', association_type_id: 1)
       #
       # Returns True if the removal was successful
-      def unassociate(id, to_object_or_id, to_object_type: nil, association_type_id:)
+      def unassociate(id, to_object_or_id, to_object_type: nil, association_type_id:, association_category: 'HUBSPOT_DEFINED')
         if to_object_or_id.respond_to?(:id) && to_object_or_id.respond_to?(:resource_name)
           to_id = to_object_or_id.id
           to_type = to_object_or_id.resource_name
@@ -239,8 +281,22 @@ module Hubspot
           raise ArgumentError, 'to_object_type is required when associating by ID' if to_type.nil?
         end
 
-        url = "#{api_root}/#{resource_name}/#{id}/associations/#{to_type}/#{to_id}/#{association_type_id}"
-        response = delete(url)
+        url = "#{associations_api_root}/#{resource_name}/#{to_type}/batch/archive"
+        body = {
+          inputs: [
+            {
+              from: { id: id },
+              to: [{ id: to_id }],
+              types: [
+                {
+                  associationCategory: association_category,
+                  associationTypeId: association_type_id.to_i
+                }
+              ]
+            }
+          ]
+        }
+        response = post(url, body: body.to_json)
         handle_response(response)
 
         true
@@ -256,7 +312,8 @@ module Hubspot
       #
       # Returns [PagedCollection] A list of associations
       def associations(id, to_object_type)
-        url = "#{api_root}/#{resource_name}/#{id}/associations/#{to_object_type}"
+        # Use V4 endpoint for retrieving associations
+        url = "/crm/v4/objects/#{resource_name}/#{id}/associations/#{to_object_type}"
         PagedCollection.new(
           url: url,
           resource_class: nil
@@ -367,6 +424,13 @@ module Hubspot
         properties.detect { |prop| prop.name == property_name }
       end
 
+      # Retrieve a list of property names
+      #
+      # Returns [Array<String>] An array of property names
+      def property_names
+        properties.map(&:name)
+      end
+
       # rubocop:disable Metrics/MethodLength
 
       # Search for resources using a flexible query format and optional properties.
@@ -385,6 +449,9 @@ module Hubspot
       #   - `_lte`: Less than or equal to comparison.
       #   - `_neq`: Not equal to comparison.
       #   - `_in`: Matches any of the values in the given array.
+      #   - `_between`: Matches values between the given range (requires an array of two values).
+      #   - `_has_property`: Matches resources where the property exists (value is ignored).
+      #   - `_not_has_property`: Matches resources where the property does not exist (value is ignored).
       #
       # If no suffix is provided, the default comparison is equality (`EQ`).
       #
@@ -467,6 +534,10 @@ module Hubspot
         '/crm/v3/objects'
       end
 
+      def associations_api_root
+        '/crm/v4/associations'
+      end
+
       # In the response from the api the resources returned in this key
       def results_param
         'results'
@@ -508,6 +579,25 @@ module Hubspot
 
         properties.concat(required_properties).uniq
       end
+
+      def build_associations_payload(associations)
+        return [] unless associations.is_a?(Array)
+
+        associations.map do |assoc|
+          target = assoc[:to] || assoc['to'] || assoc[:object] || assoc['object'] || assoc[:to_id] || assoc['to_id']
+          target_id = target.respond_to?(:id) ? target.id : target
+
+          {
+            to: { id: target_id },
+            types: [
+              {
+                associationCategory: assoc[:association_category] || assoc['association_category'] || 'HUBSPOT_DEFINED',
+                associationTypeId: (assoc[:association_type_id] || assoc['association_type_id']).to_i
+              }
+            ]
+          }
+        end
+      end
     end
 
     # rubocop:disable Lint/MissingSuper
@@ -539,12 +629,17 @@ module Hubspot
       @id = extract_id(data.delete(api_id_field))
       @properties = {}
       @metadata = {}
+      @pending_associations = []
 
       if @id && api_formed_reponse?(data)
         initialize_from_api(data)
       else
         initialize_new_object(data)
       end
+    end
+
+    def associations=(associations)
+      @pending_associations = associations
     end
     # rubocop:enable Lint/MissingSuper
 
@@ -564,15 +659,18 @@ module Hubspot
     #
     # Returns Boolean
     def save
+      associations = @changes.delete('associations') || @pending_associations || []
+
       if persisted?
-        self.class.update(@id, @changes).tap do |result|
+        self.class.update(@id, @changes, associations: associations).tap do |result|
           return false unless result
 
           @properties.merge!(@changes)
           @changes = {}
+          @pending_associations = []
         end
       else
-        create_new
+        create_new(associations)
       end
     end
 
@@ -580,6 +678,29 @@ module Hubspot
       raise NothingToDoError, 'Nothing to save' unless changes?
 
       save
+    end
+
+    # Reload the resource with all available properties
+    #
+    # Example:
+    #   contact = Hubspot::Contact.find(1)
+    #   contact.reload_properties
+    #   contact.properties.keys # => returns all properties
+    #
+    # Returns self
+    def reload_properties
+      all_property_names = self.class.properties.map(&:name)
+      refreshed = self.class.find(id, properties: all_property_names)
+      @properties = refreshed.properties
+      @metadata = refreshed.metadata
+      self
+    end
+
+    # Retrieve the list of available properties for this resource
+    #
+    # Returns [Array<Hubspot::Property>] An array of hubspot properties
+    def available_properties
+      self.class.properties
     end
 
     # If the resource exists in Hubspot
@@ -643,20 +764,21 @@ module Hubspot
     # target_object_or_id - [Resource|Integer] The resource or ID to associate with
     # to_object_type - [String] The type of the target object (required if passing ID)
     # association_type_id - [Integer] The ID of the association type
+    # association_category - [String] The category of the association type (default: 'HUBSPOT_DEFINED')
     #
     # Example:
     #   contact.associate(company, association_type_id: 1)
     #   contact.associate(company_id, to_object_type: 'companies', association_type_id: 1)
     #
     # Returns True if the association was successful
-    def associate(target_object_or_id, to_object_type: nil, association_type_id:)
+    def associate(target_object_or_id, to_object_type: nil, association_type_id:, association_category: 'HUBSPOT_DEFINED')
       raise ArgumentError, 'must be persisted' unless persisted?
 
       if target_object_or_id.respond_to?(:persisted?)
         raise ArgumentError, 'target_object must be persisted' unless target_object_or_id.persisted?
       end
 
-      self.class.associate(id, target_object_or_id, to_object_type: to_object_type, association_type_id: association_type_id)
+      self.class.associate(id, target_object_or_id, to_object_type: to_object_type, association_type_id: association_type_id, association_category: association_category)
     end
 
     # Remove an association with another resource
@@ -664,16 +786,17 @@ module Hubspot
     # target_object_or_id - [Resource|Integer] The resource or ID to remove association with
     # to_object_type - [String] The type of the target object (required if passing ID)
     # association_type_id - [Integer] The ID of the association type
+    # association_category - [String] The category of the association type (default: 'HUBSPOT_DEFINED')
     #
     # Example:
     #   contact.unassociate(company, association_type_id: 1)
     #   contact.unassociate(company_id, to_object_type: 'companies', association_type_id: 1)
     #
     # Returns True if the removal was successful
-    def unassociate(target_object_or_id, to_object_type: nil, association_type_id:)
+    def unassociate(target_object_or_id, to_object_type: nil, association_type_id:, association_category: 'HUBSPOT_DEFINED')
       raise ArgumentError, 'must be persisted' unless persisted?
 
-      self.class.unassociate(id, target_object_or_id, to_object_type: to_object_type, association_type_id: association_type_id)
+      self.class.unassociate(id, target_object_or_id, to_object_type: to_object_type, association_type_id: association_type_id, association_category: association_category)
     end
 
     # Retrieve associations with another resource type
@@ -813,11 +936,12 @@ module Hubspot
     end
 
     # Create a new resource
-    def create_new
-      created_resource = self.class.create(@changes)
+    def create_new(associations = [])
+      created_resource = self.class.create(@changes.merge(associations: associations))
       @id = created_resource.id
       @properties.merge!(@changes)
       @changes = {}
+      @pending_associations = []
       @id ? true : false
     end
   end

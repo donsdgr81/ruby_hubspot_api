@@ -12,7 +12,7 @@ Gem::Specification.new do |spec|
   spec.email         = ['simon@datanauts.co.uk']
 
   spec.summary = 'ruby_hubspot_api is an ORM-like wrapper for the Hubspot API'
-  spec.description = 'ruby_hubspot_api is an ORM-like wrapper for v3 of the Hubspot API'
+  spec.description = 'ruby_hubspot_api is an ORM-like wrapper for v3 of the Hubspot API (and v4 for associations)'
   spec.homepage = 'https://github.com/sensadrome/ruby_hubspot_api'
   spec.license = 'MIT'
 

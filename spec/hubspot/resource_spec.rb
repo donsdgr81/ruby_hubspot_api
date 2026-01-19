@@ -158,21 +158,51 @@ RSpec.describe Hubspot::Resource do
     let(:to_id) { 2 }
     let(:association_type_id) { 3 }
     let(:to_object) { instance_double(Hubspot::Resource, id: to_id, resource_name: 'companies') }
-    let(:url) { "https://api.hubapi.com/crm/v3/objects/resources/#{from_id}/associations/companies/#{to_id}/#{association_type_id}" }
+    let(:url) { "https://api.hubapi.com/crm/v4/associations/resources/companies/batch/create" }
 
     before do
-      stub_request(:put, url).to_return(status: 200, body: {}.to_json)
+      stub_request(:post, url).to_return(status: 200, body: {}.to_json)
     end
 
-    it 'makes a PUT request to the association endpoint' do
+    it 'makes a POST request to the V4 batch association endpoint' do
       expect(described_class.associate(from_id, to_object, association_type_id: association_type_id)).to be(true)
-      expect(WebMock).to have_requested(:put, url)
+      expect(WebMock).to have_requested(:post, url).with(
+        body: {
+          inputs: [
+            {
+              from: { id: from_id },
+              to: { id: to_id },
+              types: [
+                {
+                  associationCategory: 'HUBSPOT_DEFINED',
+                  associationTypeId: association_type_id
+                }
+              ]
+            }
+          ]
+        }.to_json
+      )
     end
 
     context 'when associating by ID and type' do
-      it 'makes a PUT request to the association endpoint using the provided type' do
+      it 'makes a POST request to the V4 batch association endpoint using the provided type' do
         expect(described_class.associate(from_id, to_id, to_object_type: 'companies', association_type_id: association_type_id)).to be(true)
-        expect(WebMock).to have_requested(:put, url)
+        expect(WebMock).to have_requested(:post, url).with(
+          body: {
+            inputs: [
+              {
+                from: { id: from_id },
+                to: { id: to_id },
+                types: [
+                  {
+                    associationCategory: 'HUBSPOT_DEFINED',
+                    associationTypeId: association_type_id
+                  }
+                ]
+              }
+            ]
+          }.to_json
+        )
       end
 
       it 'raises an error if type is missing' do
@@ -189,7 +219,7 @@ RSpec.describe Hubspot::Resource do
     let(:target_object) { Hubspot::Company.new(id: to_id) }
 
     before do
-      stub_request(:put, %r{crm/v3/objects/resources/#{from_id}/associations/companies/#{to_id}/#{association_type_id}}).to_return(status: 200, body: {}.to_json)
+      stub_request(:post, %r{crm/v4/associations/resources/companies/batch/create}).to_return(status: 200, body: {}.to_json)
     end
 
     it 'calls the class associate method' do
@@ -207,8 +237,10 @@ RSpec.describe Hubspot::Resource do
     let(:from_id) { 1 }
     let(:to_object_type) { 'companies' }
 
-    it 'returns a PagedCollection' do
-      expect(described_class.associations(from_id, to_object_type)).to be_a(Hubspot::PagedCollection)
+    it 'returns a PagedCollection configured for V4 API' do
+      collection = described_class.associations(from_id, to_object_type)
+      expect(collection).to be_a(Hubspot::PagedCollection)
+      expect(collection.instance_variable_get(:@url)).to include("/crm/v4/objects")
     end
   end
 
@@ -233,21 +265,51 @@ RSpec.describe Hubspot::Resource do
     let(:to_id) { 2 }
     let(:association_type_id) { 3 }
     let(:to_object) { instance_double(Hubspot::Resource, id: to_id, resource_name: 'companies') }
-    let(:url) { "https://api.hubapi.com/crm/v3/objects/resources/#{from_id}/associations/companies/#{to_id}/#{association_type_id}" }
+    let(:url) { "https://api.hubapi.com/crm/v4/associations/resources/companies/batch/archive" }
 
     before do
-      stub_request(:delete, url).to_return(status: 200, body: {}.to_json)
+      stub_request(:post, url).to_return(status: 200, body: {}.to_json)
     end
 
-    it 'makes a DELETE request to the association endpoint' do
+    it 'makes a POST request to the V4 batch archive endpoint' do
       expect(described_class.unassociate(from_id, to_object, association_type_id: association_type_id)).to be(true)
-      expect(WebMock).to have_requested(:delete, url)
+      expect(WebMock).to have_requested(:post, url).with(
+        body: {
+          inputs: [
+            {
+              from: { id: from_id },
+              to: [{ id: to_id }],
+              types: [
+                {
+                  associationCategory: 'HUBSPOT_DEFINED',
+                  associationTypeId: association_type_id
+                }
+              ]
+            }
+          ]
+        }.to_json
+      )
     end
 
     context 'when unassociating by ID and type' do
-      it 'makes a DELETE request to the association endpoint using the provided type' do
+      it 'makes a POST request to the V4 batch archive endpoint using the provided type' do
         expect(described_class.unassociate(from_id, to_id, to_object_type: 'companies', association_type_id: association_type_id)).to be(true)
-        expect(WebMock).to have_requested(:delete, url)
+        expect(WebMock).to have_requested(:post, url).with(
+          body: {
+            inputs: [
+              {
+                from: { id: from_id },
+                to: [{ id: to_id }],
+                types: [
+                  {
+                    associationCategory: 'HUBSPOT_DEFINED',
+                    associationTypeId: association_type_id
+                  }
+                ]
+              }
+            ]
+          }.to_json
+        )
       end
 
       it 'raises an error if type is missing' do
@@ -269,14 +331,47 @@ RSpec.describe Hubspot::Resource do
 
     it 'calls the class unassociate method' do
       expect(resource.unassociate(target_object, association_type_id: association_type_id)).to be(true)
-      expect(described_class).to have_received(:unassociate).with(from_id, target_object, to_object_type: nil, association_type_id: association_type_id)
+      expect(described_class).to have_received(:unassociate).with(from_id, target_object, to_object_type: nil, association_type_id: association_type_id, association_category: 'HUBSPOT_DEFINED')
     end
 
     context 'when unassociating by ID and type' do
       it 'calls the class unassociate method with type' do
         expect(resource.unassociate(to_id, to_object_type: 'companies', association_type_id: association_type_id)).to be(true)
-        expect(described_class).to have_received(:unassociate).with(from_id, to_id, to_object_type: 'companies', association_type_id: association_type_id)
+        expect(described_class).to have_received(:unassociate).with(from_id, to_id, to_object_type: 'companies', association_type_id: association_type_id, association_category: 'HUBSPOT_DEFINED')
       end
+    end
+  end
+
+  describe '#reload_properties' do
+    let(:resource) { described_class.new(id: 1) }
+    let(:all_properties) do
+      [
+        double('Property', name: 'firstname'),
+        double('Property', name: 'lastname'),
+        double('Property', name: 'email')
+      ]
+    end
+    let(:refreshed_resource) do
+      described_class.new('id' => 1, 'properties' => { 'firstname' => 'Mace', 'lastname' => 'Windu', 'email' => 'mace@jedi.org' })
+    end
+
+    before do
+      allow(described_class).to receive(:properties).and_return(all_properties)
+      allow(described_class).to receive(:find).with(1, properties: %w[firstname lastname email]).and_return(refreshed_resource)
+    end
+
+    it 'fetches all properties and updates the instance' do
+      expect(resource.properties).to be_empty
+
+      resource.reload_properties
+
+      expect(resource.properties['firstname']).to eq('Mace')
+      expect(resource.properties['lastname']).to eq('Windu')
+      expect(resource.properties['email']).to eq('mace@jedi.org')
+    end
+
+    it 'returns self' do
+      expect(resource.reload_properties).to eq(resource)
     end
   end
 end

@@ -187,6 +187,7 @@ module Hubspot
 
     # Perform batch request based on the provided action (upsert, update, create, or archive)
     def batch_request(type, inputs, action)
+      # Using V3 because V4 batch endpoints for objects are not generally available
       response = self.class.post("/crm/v3/objects/#{type}/batch/#{action}",
                                  body: { inputs: inputs }.to_json)
       BatchResponse.new(response.code, handle_response(response))

@@ -2,7 +2,7 @@
 
 [![codecov](https://codecov.io/gh/sensadrome/ruby_hubspot_api/branch/main/graph/badge.svg)](https://codecov.io/gh/sensadrome/ruby_hubspot_api) [![Codacy Badge](https://app.codacy.com/project/badge/Grade/504ca01245ee4928b6ed0b13801259e7)](https://app.codacy.com/gh/sensadrome/ruby_hubspot_api/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
-This gem was largely inspired by [hubspot-api-ruby](https://github.com/captaincontrat/hubspot-api-ruby) which, in turn, was inspired by the [hubspot-ruby](https://github.com/HubspotCommunity/hubspot-ruby) community gem. I wanted to use version 3 of the api and simplify some parts of the interface
+This gem is a fork of [hubspot-api-ruby](https://github.com/sensadrome/ruby_hubspot_api) but updated to use version 3 of the api (and version 4 for associations) and with additional functionality such as associations.
 
 The Ruby HubSpot API gem is a starting point for building an ORM-like interface to HubSpot's API.
 
@@ -95,6 +95,23 @@ new_contact.save
 
 # After saving, the contact will be assigned an ID by the API
 puts "New contact ID: #{new_contact.id}"
+
+# You can also create associations at the same time
+# The associations array accepts hashes with:
+# - to_id (or to): The ID or the Object instance to associate with
+# - association_type_id: The ID of the association type
+# - association_category: (Optional) 'HUBSPOT_DEFINED' (default) or 'USER_DEFINED'
+
+company = Hubspot::Company.find(123)
+
+new_contact = Hubspot::Contact.new(
+  email: 'john.doe@example.com',
+  associations: [
+    { to_id: 123, association_type_id: 1 }, # Associate with company ID
+    { to: company, association_type_id: 1 } # Associate with company object
+  ]
+)
+new_contact.save
 ```
 
 ### Retreiving an Object
@@ -116,6 +133,37 @@ puts "Contact: #{contact.firstname} #{contact.lastname}"
 #find by internal id (custom field)
 contact = Hubspot::Contact.find_by('member_id', 123)
 puts "Contact: #{contact.firstname} #{contact.lastname}"
+```
+
+### View all properties
+
+By default, HubSpot only returns a subset of properties when fetching an object. If you need to view all properties of an object, you can use the `reload_properties` method.
+
+```ruby
+contact = Hubspot::Contact.find(1)
+contact.properties.keys.count # => e.g., 5
+
+contact.reload_properties
+contact.properties.keys.count # => e.g., 150 (all available properties)
+```
+
+### View available properties (Schema)
+
+You can list all available properties defined for a resource (i.e. the schema) using the `properties` or `property_names` methods. This fetches the property definitions from HubSpot.
+
+```ruby
+# Get all property definitions (returns Array<Hubspot::Property>)
+all_props = Hubspot::Contact.properties
+# or on an instance
+all_props = contact.available_properties
+
+all_props.each do |prop|
+  puts "#{prop.name} (#{prop.type})"
+end
+
+# Get just the property names
+names = Hubspot::Contact.property_names
+puts names.join(', ')
 ```
 
 ### Updating an Existing Object
@@ -158,6 +206,18 @@ Example using `update`:
 contact = Hubspot::Contact.find(1)
 # save the updates to Hubspot
 contact.update(lastname: 'DoeUpdated') # true
+
+# You can also add associations during update
+# Note: When updating using IDs, to_object_type is required.
+contact.update(
+  { lastname: 'DoeUpdated' },
+  associations: [
+    { to_id: 456, to_object_type: 'companies', association_type_id: 1 },
+    # Associate with a custom object (pass the object directly)
+    # You can specify association_category if needed (e.g. for custom objects)
+    { to: my_custom_object, association_type_id: 55, association_category: 'USER_DEFINED' }
+  ]
+)
 ```
 
 If you are able to construct an Object with data stored locally you can save the inital `find` api call, but you will need to construct the persisted object specifying the id and a properties hash (as if it came from the api!)
@@ -300,14 +360,30 @@ end
 - **gte**: Greater than or equal to.
 - **lt**: Less than.
 - **lte**: Less than or equal to.
+- **between**: Between two values.
+- **has_property**: Property exists.
+- **not_has_property**: Property does not exist.
 
-#### Searching for empty values (NOT_HAS_PROPERTY)
+#### Searching with ranges (BETWEEN)
 
-Any empty value in your search will be matched using the correect filter in Hubspot
+```ruby
+# Search for contacts created between two dates (timestamps in milliseconds)
+contacts = Hubspot::Contact.search(createdate_between: ['1572566400000', '1575158400000'])
+```
+
+#### Searching for property existence (HAS_PROPERTY / NOT_HAS_PROPERTY)
+
+```ruby
+# Search for contacts that have a specific property
+contacts = Hubspot::Contact.search(phone_has_property: true)
+
+# Search for contacts that do not have a specific property
+contacts = Hubspot::Contact.search(mobilephone_not_has_property: true)
+```
 
 ```ruby
 # Search for companies with no value for a given field
-companies = Hubspot::Company.search({ client_category: nil }, properties: %w[name number_of_employees])
+companies = Hubspot::Company.search({ client_category_not_has_property: true }, properties: %w[name number_of_employees])
 # Request body: {"filterGroups":[{"filters":[{"propertyName":"client_category","operator":"NOT_HAS_PROPERTY"}]}]
 
 puts "Searching for uncategorised customers"
@@ -402,7 +478,7 @@ You can manage associations between objects (e.g. associating a Contact with a C
 
 #### Creating an Association
 
-To associate two objects, use the `associate` method.
+To associate two objects, use the `associate` method. This uses the HubSpot V4 API.
 
 ```ruby
 contact = Hubspot::Contact.find(1)
@@ -412,11 +488,15 @@ association_type_id = 1 # The ID of the association type (e.g., primary company)
 contact.associate(company, association_type_id: association_type_id)
 # or using IDs
 contact.associate(2, to_object_type: 'companies', association_type_id: association_type_id)
+
+# You can also specify an association category (defaults to HUBSPOT_DEFINED)
+# e.g. for custom labels or custom objects
+contact.associate(company, association_type_id: 1, association_category: 'USER_DEFINED')
 ```
 
 #### Retrieving Associations
 
-To retrieve all associations of a certain type for an object, use the `associations` method. This returns a `PagedCollection`.
+To retrieve all associations of a certain type for an object, use the `associations` method. This returns a `PagedCollection`. This uses the V4 API, so the response structure contains `toObjectId` and `associationTypes`.
 
 ```ruby
 contact = Hubspot::Contact.find(1)
@@ -425,7 +505,12 @@ contact = Hubspot::Contact.find(1)
 companies_associations = contact.associations('companies')
 
 companies_associations.each do |assoc|
-  puts "Associated Company ID: #{assoc['id']}"
+  puts "Associated Company ID: #{assoc['toObjectId']}"
+
+  # Access association details like custom labels
+  assoc['associationTypes'].each do |type|
+    puts "Label: #{type['label']}"
+  end
 end
 ```
 
@@ -441,6 +526,98 @@ association_type_id = 1
 contact.unassociate(company_id, to_object_type: 'companies', association_type_id: association_type_id)
 # or using an object
 # contact.unassociate(company_instance, association_type_id: association_type_id)
+
+# You can also specify an association category (defaults to HUBSPOT_DEFINED)
+contact.unassociate(company_instance, association_type_id: 1, association_category: 'USER_DEFINED')
+```
+
+## Files
+
+You can manage files using the `Hubspot::File` class. This allows you to upload, retrieve, and delete files.
+
+### Uploading a File
+
+To upload a file, use the `create` method. You can pass a file path or a File object. You can also specify folder paths and other options.
+
+```ruby
+# Upload using a file path
+file = Hubspot::File.create('/path/to/image.png')
+
+# Upload using a File/IO object
+file_blob = File.open('/path/to/image.png')
+file = Hubspot::File.create(file_blob)
+file_blob.close
+
+# Upload from memory (e.g., using StringIO)
+require 'stringio'
+blob = StringIO.new('my file content')
+# fileName is required when uploading from an object without a path
+file = Hubspot::File.create(blob, fileName: 'my_file.txt')
+
+# Upload with options
+file = Hubspot::File.create(
+  '/path/to/image.png',
+  folderPath: '/marketing/images',
+  options: { access: 'PUBLIC_INDEXABLE' }
+)
+
+puts "Uploaded file ID: #{file.id}"
+puts "File URL: #{file['url']}"
+```
+
+### Retrieving a File
+
+To retrieve information about a file, use the `find` method with the file ID.
+
+```ruby
+file = Hubspot::File.find('12345')
+puts "File Name: #{file['name']}"
+puts "File URL: #{file['url']}"
+```
+
+### Finding a File by Path
+
+To retrieve information about a file using its path, use the `find_by_path` method. Returns `nil` if the file is not found.
+
+```ruby
+file = Hubspot::File.find_by_path('images/logo.png')
+if file
+  puts "File ID: #{file.id}"
+else
+  puts "File not found"
+end
+```
+
+### Updating a File
+
+To update (replace) the content of an existing file, use the `update` method.
+Note: The access level defaults to 'PRIVATE' if not specified.
+
+```ruby
+# Update by ID
+file = Hubspot::File.update('12345', '/path/to/new_image.png')
+
+# Update using instance
+file = Hubspot::File.find('12345')
+file.update('/path/to/new_image.png')
+
+# Update with StringIO (memory content)
+require 'stringio'
+blob = StringIO.new('new content')
+file.update(blob, fileName: 'new_file.txt')
+```
+
+### Deleting a File
+
+To delete a file, use the `delete` method with the file ID or call `delete` on a file instance.
+
+```ruby
+# Delete by ID
+Hubspot::File.delete('12345')
+
+# Delete instance
+file = Hubspot::File.find('12345')
+file.delete
 ```
 
 ## Working with batches
